@@ -13,16 +13,17 @@ A bash script that automatically detects and fixes dirty NTFS filesystems on USB
 ## Quick Install
 
 ```bash
-# Download
-curl -O https://raw.githubusercontent.com/MootComb/ntfs-autofix/main/ntfs-autofix
-cd ntfs-autofix
-chmod +x ntfs-autofix.sh
-
 # Install with default settings (notifications & logging enabled)
-sudo ./ntfs-autofix.sh install
+curl -fsSL -o ntfs-autofix.sh https://raw.githubusercontent.com/MootComb/ntfs-autofix/main/ntfs-autofix.sh
+chmod +x ntfs-autofix.sh
+sudo ENABLE_NOTIFICATIONS=1 ENABLE_LOGGING=1 ./ntfs-autofix.sh install
+```
 
+```
 # Silent install (no notifications, no logging)
-ENABLE_NOTIFICATIONS=0 ENABLE_LOGGING=0 ./ntfs-autofix.sh install
+curl -fsSL -o ntfs-autofix.sh https://raw.githubusercontent.com/MootComb/ntfs-autofix/main/ntfs-autofix.sh
+chmod +x ntfs-autofix.sh
+sudo ENABLE_NOTIFICATIONS=0 ENABLE_LOGGING=0 ./ntfs-autofix.sh install
 ```
 
 ## Commands
