@@ -19,11 +19,24 @@ ENABLE_NOTIFICATIONS="${ENABLE_NOTIFICATIONS:-1}"
 ENABLE_LOGGING="${ENABLE_LOGGING:-1}"
 
 load_config() {
+    local env_notifications="${ENABLE_NOTIFICATIONS:-}"
+    local env_logging="${ENABLE_LOGGING:-}"
+    
     if [[ -f "${CONFIG_FILE}" ]]; then
         source "${CONFIG_FILE}"
     fi
-    ENABLE_NOTIFICATIONS="${ENABLE_NOTIFICATIONS:-1}"
-    ENABLE_LOGGING="${ENABLE_LOGGING:-1}"
+    
+    if [[ -n "${env_notifications}" ]]; then
+        ENABLE_NOTIFICATIONS="${env_notifications}"
+    else
+        ENABLE_NOTIFICATIONS="${ENABLE_NOTIFICATIONS:-1}"
+    fi
+    
+    if [[ -n "${env_logging}" ]]; then
+        ENABLE_LOGGING="${env_logging}"
+    else
+        ENABLE_LOGGING="${ENABLE_LOGGING:-1}"
+    fi
 }
 
 save_config() {
