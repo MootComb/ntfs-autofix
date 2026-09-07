@@ -26,16 +26,16 @@ load_config() {
         source "${CONFIG_FILE}"
     fi
     
-    if [[ -n "${env_notifications}" ]]; then
-        ENABLE_NOTIFICATIONS="${env_notifications}"
-    else
+    if [[ -z "${env_notifications}" ]]; then
         ENABLE_NOTIFICATIONS="${ENABLE_NOTIFICATIONS:-1}"
+    else
+        ENABLE_NOTIFICATIONS="${env_notifications}"
     fi
     
-    if [[ -n "${env_logging}" ]]; then
-        ENABLE_LOGGING="${env_logging}"
-    else
+    if [[ -z "${env_logging}" ]]; then
         ENABLE_LOGGING="${ENABLE_LOGGING:-1}"
+    else
+        ENABLE_LOGGING="${env_logging}"
     fi
 }
 
