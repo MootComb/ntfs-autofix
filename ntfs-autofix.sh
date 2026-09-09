@@ -15,26 +15,22 @@ readonly COLOR_YELLOW='\033[1;33m'
 readonly COLOR_BLUE='\033[0;34m'
 readonly COLOR_RESET='\033[0m'
 
-ENABLE_NOTIFICATIONS="${ENABLE_NOTIFICATIONS:-1}"
-ENABLE_LOGGING="${ENABLE_LOGGING:-1}"
-
 load_config() {
     local env_notifications="${ENABLE_NOTIFICATIONS:-}"
     local env_logging="${ENABLE_LOGGING:-}"
+    
+    ENABLE_NOTIFICATIONS=1
+    ENABLE_LOGGING=1
     
     if [[ -f "${CONFIG_FILE}" ]]; then
         source "${CONFIG_FILE}"
     fi
     
-    if [[ -z "${env_notifications}" ]]; then
-        ENABLE_NOTIFICATIONS="${ENABLE_NOTIFICATIONS:-1}"
-    else
+    if [[ -n "${env_notifications}" ]]; then
         ENABLE_NOTIFICATIONS="${env_notifications}"
     fi
     
-    if [[ -z "${env_logging}" ]]; then
-        ENABLE_LOGGING="${ENABLE_LOGGING:-1}"
-    else
+    if [[ -n "${env_logging}" ]]; then
         ENABLE_LOGGING="${env_logging}"
     fi
 }
