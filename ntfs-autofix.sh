@@ -105,25 +105,11 @@ is_ntfs_filesystem() {
 is_filesystem_dirty() {
     local device="$1"
     local output
-    local marker="Volume is scheduled for check"
-
     output=$(ntfsinfo -m "${device}" 2>&1)
 
-    {
-        echo "===== is_filesystem_dirty ====="
-        echo "device:   ${device}"
-        echo "marker:   \"${marker}\""
-        echo "----- ntfsinfo output -----"
-        echo "${output}"
-        echo "----- end output -----"
-    } >> "${LOG_FILE}" 2>/dev/null
-
-    if echo "${output}" | grep -q "${marker}"; then
-        echo "verdict:  DIRTY (marker found)" >> "${LOG_FILE}" 2>/dev/null
+    if echo "${output}" | grep -qE "Volume is scheduled for check|Access is denied"; then
         return 0
     fi
-
-    echo "verdict:  CLEAN (marker not found)" >> "${LOG_FILE}" 2>/dev/null
     return 1
 }
 
