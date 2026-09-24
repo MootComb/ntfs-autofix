@@ -62,7 +62,7 @@ ensure_root() {
     fi
 }
 
-ensure_ntfs_tools() {
+ensure_tools() {
     if command -v ntfsfix &>/dev/null && command -v ntfsinfo &>/dev/null; then
         log_message "ntfs-3g tools are already installed."
         return 0
@@ -77,13 +77,29 @@ ensure_ntfs_tools() {
         echo -e "${COLOR_RED}ERROR: ntfs-3g and ntfsprogs installation failed.${COLOR_RESET}" >&2
         exit 1
     fi
+
+    if ! command -v notify-send &>/dev/null; then
+        echo -e "${COLOR_YELLOW}Warning: notify-send not found. Desktop notifications will not work.${COLOR_RESET}"
+        echo -e "${COLOR_YELLOW}Attempting to install libnotify...${COLOR_RESET}"
+
+        if command -v pacman &>/dev/null; then
+            sudo pacman -Sy --noconfirm libnotify
+            if command -v notify-send &>/dev/null; then
+                echo -e "${COLOR_GREEN}libnotify installed successfully.${COLOR_RESET}"
+            else
+                echo -e "${COLOR_YELLOW}Failed to install libnotify. Install it manually to enable notifications.${COLOR_RESET}"
+            fi
+        else
+            echo -e "${COLOR_YELLOW}pacman not found. Install libnotify manually to enable notifications.${COLOR_RESET}"
+        fi
+    fi
 }
 
 is_ntfs_filesystem() {
     local device="$1"
     local fstype
     fstype=$(blkid -o value -s TYPE "${device}" 2>/dev/null || echo "unknown")
-    [[ "${fstype}" == "ntfs" ]]
+    [[ "${fstype}" == *ntfs* ]]
 }
 
 is_filesystem_dirty() {
@@ -91,9 +107,6 @@ is_filesystem_dirty() {
     local output
     output=$(ntfsinfo -m "${device}" 2>&1)
     if echo "${output}" | grep -q "Volume is scheduled for check"; then
-        return 0
-    fi
-    if ! echo "${output}" | grep -q "Access is denied"; then
         return 0
     fi
     return 1
@@ -261,16 +274,12 @@ process_device() {
 install_service() {
     ensure_root
     echo -e "${COLOR_BLUE}Installing NTFS Auto-Fix Service...${COLOR_RESET}"
-    if ! command -v notify-send &>/dev/null; then
-        echo -e "${COLOR_YELLOW}Warning: notify-send not found. Desktop notifications will not work.${COLOR_RESET}"
-        echo -e "${COLOR_YELLOW}Install libnotify to enable notifications.${COLOR_RESET}"
-        sleep 2
-    fi
     cp "$0" "${INSTALL_PATH}"
     chmod +x "${INSTALL_PATH}"
     log_message "Installed script to ${INSTALL_PATH}"
     cat > "${UDEV_RULE_PATH}" << 'EOF'
-ACTION=="add", SUBSYSTEM=="block", ENV{ID_BUS}=="usb", ENV{ID_FS_TYPE}=="ntfs", KERNEL=="sd[a-z][0-9]*", RUN+="/usr/local/bin/ntfs-autofix"
+ACTION=="add", SUBSYSTEM=="block", ENV{ID_FS_TYPE}=="ntfs", RUN+="/usr/local/bin/ntfs-autofix"
+ACTION=="add", SUBSYSTEM=="block", ENV{ID_FS_TYPE}=="ntfs3", RUN+="/usr/local/bin/ntfs-autofix"
 EOF
     log_message "Created udev rule: ${UDEV_RULE_PATH}"
     echo -e "${COLOR_BLUE}Reloading udev rules...${COLOR_RESET}"
@@ -288,6 +297,7 @@ EOF
 
 uninstall_service() {
     ensure_root
+    ensure_tools
     echo -e "${COLOR_BLUE}Uninstalling NTFS Auto-Fix Service...${COLOR_RESET}"
     rm -f "${INSTALL_PATH}"
     rm -f "${UDEV_RULE_PATH}"
@@ -308,10 +318,15 @@ show_status() {
     else
         echo -e "Service: ${COLOR_RED}Not Installed${COLOR_RESET}"
     fi
-    if command -v ntfsfix &>/dev/null; then
+    if command -v ntfs-3g &>/dev/null; then
         echo -e "ntfs-3g:  ${COLOR_GREEN}Installed${COLOR_RESET}"
     else
         echo -e "ntfs-3g:  ${COLOR_RED}Not Installed${COLOR_RESET}"
+    fi
+    if command -v ntfsfix &>/dev/null; then
+        echo -e "ntfsprogs:  ${COLOR_GREEN}Installed${COLOR_RESET}"
+    else
+        echo -e "ntfsprogs:  ${COLOR_RED}Not Installed${COLOR_RESET}"
     fi
     if command -v notify-send &>/dev/null; then
         echo -e "notify-send: ${COLOR_GREEN}Available${COLOR_RESET}"
@@ -351,7 +366,6 @@ main() {
     echo $$ > "${LOCK_FILE}"
     trap "rm -f '${LOCK_FILE}'; trap - EXIT" EXIT
     ensure_root
-    ensure_ntfs_tools
     if [[ -n "${DEVNAME:-}" ]]; then
         log_message "Invoked by udev for device: ${DEVNAME}"
         process_device "${DEVNAME}"
