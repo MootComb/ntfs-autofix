@@ -68,13 +68,13 @@ ensure_ntfs_tools() {
         return 0
     fi
     log_message "ntfs-3g tools not found. Attempting installation..."
-    echo -e "${COLOR_YELLOW}Installing ntfs-3g...${COLOR_RESET}"
-    if pacman -Sy --noconfirm ntfs-3g; then
-        log_message "ntfs-3g installed successfully."
-        echo -e "${COLOR_GREEN}ntfs-3g installation completed.${COLOR_RESET}"
+    echo -e "${COLOR_YELLOW}Installing ntfs-3g and ntfsprogs...${COLOR_RESET}"
+    if pacman -Sy --noconfirm ntfs-3g ntfsprogs; then
+        log_message "ntfs-3g and ntfsprogs installed successfully."
+        echo -e "${COLOR_GREEN}ntfs-3g and ntfsprogs installation completed.${COLOR_RESET}"
     else
-        log_message "ERROR: Failed to install ntfs-3g."
-        echo -e "${COLOR_RED}ERROR: ntfs-3g installation failed.${COLOR_RESET}" >&2
+        log_message "ERROR: Failed to install ntfs-3g and ntfsprogs."
+        echo -e "${COLOR_RED}ERROR: ntfs-3g and ntfsprogs installation failed.${COLOR_RESET}" >&2
         exit 1
     fi
 }
