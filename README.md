@@ -74,7 +74,7 @@ sudo ntfs-autofix uninstall
 
 - Linux with systemd and udev
 - Root privileges
-- `ntfs-3g` (auto-installed via pacman on Arch)
+- `ntfs-3g and ntfsprogs` (auto-installed via pacman on Arch)
 - `libnotify` (optional, for notifications)
 
 ## Troubleshooting
@@ -84,15 +84,9 @@ sudo ntfs-autofix uninstall
 sudo ntfs-autofix status
 ```
 
-### View logs (if enabled)
+### View logs
 ```bash
 sudo tail -f /var/log/ntfs-autofix.log
-```
-
-### Fix notifications
-```bash
-sudo pacman -S libnotify
-sudo sed -i 's/ENABLE_NOTIFICATIONS=0/ENABLE_NOTIFICATIONS=1/' /etc/ntfs-autofix.conf
 ```
 
 ### Reload udev rules
