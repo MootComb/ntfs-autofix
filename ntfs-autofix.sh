@@ -208,7 +208,10 @@ send_notification() {
 repair_filesystem() {
     local device="$1"
     local mount_point="$2"
+    local output
+
     log_message "Starting repair operation on ${device}."
+
     if mountpoint -q "${mount_point}" 2>/dev/null; then
         log_message "Unmounting ${device} from ${mount_point}."
         if ! umount "${device}" 2>/dev/null; then
@@ -216,15 +219,20 @@ repair_filesystem() {
             echo -e "${COLOR_YELLOW}Warning: Could not unmount ${device}.${COLOR_RESET}"
         fi
     fi
+
     echo -e "${COLOR_BLUE}Repairing NTFS filesystem on ${device}...${COLOR_RESET}"
-    if ntfsfix -d "${device}"; then
+
+    if output=$(ntfsfix -d "${device}" 2>&1); then
         log_message "Repair completed successfully on ${device}."
+        log_message "ntfsfix output: ${output}"
         echo -e "${COLOR_GREEN}Repair completed successfully for ${device}.${COLOR_RESET}"
         send_notification "NTFS Repair Complete" "Successfully repaired ${device}." "drive-removable-media"
         return 0
     else
         log_message "ERROR: Repair failed on ${device}."
+        log_message "ntfsfix output: ${output}"
         echo -e "${COLOR_RED}Repair failed for ${device}.${COLOR_RESET}" >&2
+        echo -e "${COLOR_RED}${output}${COLOR_RESET}" >&2
         send_notification "NTFS Repair Failed" "Failed to repair ${device}." "dialog-error"
         return 1
     fi
