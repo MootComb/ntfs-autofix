@@ -296,11 +296,7 @@ process_device() {
 install_service() {
     ensure_root
     echo -e "${COLOR_BLUE}Installing NTFS Auto-Fix Service...${COLOR_RESET}"
-    if [[ -f "${BASH_SOURCE[0]}" ]]; then
-        cp "${BASH_SOURCE[0]}" "${INSTALL_PATH}"
-    else
-        cat > "${INSTALL_PATH}"
-    fi
+    cp "$0" "${INSTALL_PATH}"
     chmod +x "${INSTALL_PATH}"
     log_message "Installed script to ${INSTALL_PATH}"
     cat > "${UDEV_RULE_PATH}" << 'EOF'
