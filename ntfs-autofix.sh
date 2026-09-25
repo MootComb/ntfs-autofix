@@ -56,8 +56,21 @@ log_message() {
 }
 
 ensure_root() {
-    if [[ "${EUID}" -ne 0 ]]; then
-        echo -e "${COLOR_RED}ERROR: This script must be executed as root.${COLOR_RESET}" >&2
+    if [[ "${EUID}" -eq 0 ]]; then
+        return 0
+    fi
+
+    echo -e "${COLOR_YELLOW}Root privileges required. Re-launching with elevated privileges...${COLOR_RESET}" >&2
+
+    if command -v pkexec >/dev/null 2>&1; then
+        exec pkexec env \
+            ENABLE_NOTIFICATIONS="${ENABLE_NOTIFICATIONS}" \
+            ENABLE_LOGGING="${ENABLE_LOGGING}" \
+            "$0" "$@"
+    elif command -v sudo >/dev/null 2>&1; then
+        exec sudo -E "$0" "$@"
+    else
+        echo -e "${COLOR_RED}ERROR: Neither 'pkexec' nor 'sudo' found. Please run this script as root.${COLOR_RESET}" >&2
         exit 1
     fi
 }
