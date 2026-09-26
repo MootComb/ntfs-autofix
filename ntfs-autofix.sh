@@ -387,7 +387,7 @@ show_status() {
 
 main() {
     if [[ -f "${LOCK_FILE}" ]] && kill -0 "$(cat "${LOCK_FILE}")" 2>/dev/null; then
-        log_message "Another instance is already running (PID: $(cat "${LOCK_FILE}")). Exiting."
+        log_message "Another instance is already running (PID: $(cat "${LOCK_FILE}")). Exiting. (DEVNAME=${DEVNAME:-<none>})"
         exit 0
     fi
     echo $$ > "${LOCK_FILE}"
