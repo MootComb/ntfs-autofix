@@ -46,12 +46,15 @@ load_config
 log_message() {
     local message="$1"
     local timestamp
-    timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-    if [[ "${ENABLE_LOGGING}" -eq 1 ]]; then
-        echo "${timestamp} - ${message}" | tee -a "${LOG_FILE}"
+    timestamp=$(date '+%Y-%m-%d %H:%M:%S' 2>/dev/null) || timestamp="unknown-time"
+
+    if [[ "${ENABLE_LOGGING:-1}" -eq 1 ]]; then
+        echo "${timestamp} - ${message}" | tee -a "${LOG_FILE}" || true
     else
-        echo "${timestamp} - ${message}"
+        echo "${timestamp} - ${message}" || true
     fi
+
+    return 0
 }
 
 ensure_root() {
@@ -120,7 +123,7 @@ is_filesystem_dirty() {
     output=$(ntfsinfo -m "${device}" 2>&1)
 
     local dirty=0
-    if echo "${output}" | grep -qE "Volume is scheduled for check|Access is denied"; then
+    if echo "${output}" | grep -qE "Volume is scheduled for check|Access is denied|unclean file system"; then
         dirty=1
     fi
 
@@ -140,73 +143,80 @@ is_filesystem_dirty() {
 send_notification() {
     local title="$1"
     local message="$2"
-    
-    if [[ "${ENABLE_NOTIFICATIONS}" -eq 0 ]]; then
+
+    if [[ "${ENABLE_NOTIFICATIONS:-1}" -eq 0 ]]; then
         log_message "Desktop notifications are disabled."
         return 0
     fi
-    
+
     log_message "Preparing notification: Title='${title}', Message='${message}'"
-    
+
     get_current_user() {
         local user=""
-        
+
         user=$(loginctl list-sessions --no-legend 2>/dev/null | \
                grep -E 'seat|active' | \
                awk '{print $3}' | \
-               head -1)
-        
+               head -1) || true
+
         if [[ -n "${user}" ]] && [[ "${user}" != "root" ]]; then
             echo "${user}"
             return 0
         fi
-        
+
         user=$(who 2>/dev/null | \
                grep -E ':[0-9]+' | \
                head -1 | \
-               awk '{print $1}')
-        
+               awk '{print $1}') || true
+
         if [[ -n "${user}" ]] && [[ "${user}" != "root" ]]; then
             echo "${user}"
             return 0
         fi
-        
+
         if [[ -n "${SUDO_USER:-}" ]] && [[ "${SUDO_USER}" != "root" ]]; then
             echo "${SUDO_USER}"
             return 0
         fi
-        
+
         if [[ -n "${USER:-}" ]] && [[ "${USER}" != "root" ]]; then
             echo "${USER}"
             return 0
         fi
-        
+
         echo "unknown"
+        return 0
     }
-    
+
     run_as_user() {
         local cmd="$1"
         local user
-        user=$(get_current_user)
-        
+        user=$(get_current_user) || user="unknown"
+
         if [[ -z "${user}" ]] || [[ "${user}" == "unknown" ]]; then
             echo -e "${COLOR_YELLOW}NOTIFICATION: ${title} - ${message}${COLOR_RESET}" | wall -n 2>/dev/null || true
             return 1
         fi
-        
+
         local uid
-        uid=$(id -u "${user}" 2>/dev/null || echo "")
-        
+        uid=$(id -u "${user}" 2>/dev/null) || uid=""
+
         if [[ -z "${uid}" ]]; then
             echo -e "${COLOR_YELLOW}NOTIFICATION: ${title} - ${message}${COLOR_RESET}" | wall -n 2>/dev/null || true
             return 1
         fi
-        
+
+        if [[ ! -S "/run/user/${uid}/bus" ]]; then
+            log_message "D-Bus session for ${user} not available at /run/user/${uid}/bus"
+            echo -e "${COLOR_YELLOW}NOTIFICATION: ${title} - ${message}${COLOR_RESET}" | wall -n 2>/dev/null || true
+            return 1
+        fi
+
         local full_command="export DISPLAY=:0; "
         full_command+="export DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/${uid}/bus; "
         full_command+="export XDG_RUNTIME_DIR=/run/user/${uid}; "
         full_command+="timeout 3 ${cmd}"
-        
+
         local result
         if result=$(su "${user}" -c "${full_command}" 2>&1); then
             log_message "Notification sent successfully as user ${user}"
@@ -217,16 +227,18 @@ send_notification() {
             return 1
         fi
     }
-    
+
     if ! command -v notify-send &>/dev/null; then
         log_message "notify-send not found. Using wall broadcast."
         echo -e "${COLOR_YELLOW}NOTIFICATION: ${title} - ${message}${COLOR_RESET}" | wall -n 2>/dev/null || true
-        return 1
+        return 0
     fi
-    
+
     local notify_cmd="notify-send \"${title}\" \"${message}\""
-    
-    run_as_user "${notify_cmd}"
+
+    run_as_user "${notify_cmd}" || true
+
+    return 0
 }
 
 repair_filesystem() {
@@ -250,14 +262,14 @@ repair_filesystem() {
         log_message "Repair completed successfully on ${device}."
         log_message "ntfsfix output: ${output}"
         echo -e "${COLOR_GREEN}Repair completed successfully for ${device}.${COLOR_RESET}"
-        send_notification "NTFS Repair Complete" "Successfully repaired ${device}." "drive-removable-media"
+        send_notification "NTFS Repair Complete" "Successfully repaired ${device}." "drive-removable-media" || true
         return 0
     else
         log_message "ERROR: Repair failed on ${device}."
         log_message "ntfsfix output: ${output}"
         echo -e "${COLOR_RED}Repair failed for ${device}.${COLOR_RESET}" >&2
         echo -e "${COLOR_RED}${output}${COLOR_RESET}" >&2
-        send_notification "NTFS Repair Failed" "Failed to repair ${device}." "dialog-error"
+        send_notification "NTFS Repair Failed" "Failed to repair ${device}." "dialog-error" || true
         return 1
     fi
 }
@@ -288,16 +300,17 @@ process_device() {
     log_message "NTFS filesystem detected on ${device}."
     echo -e "${COLOR_BLUE}NTFS filesystem detected on ${device}.${COLOR_RESET}"
     local mount_point
-    mount_point=$(findmnt -n -o TARGET --source "${device}" 2>/dev/null || echo "/mnt/$(basename "${device}")")
+    mount_point=$(findmnt -n -o TARGET --source "${device}" 2>/dev/null) || \
+        mount_point="/mnt/$(basename "${device}" 2>/dev/null || echo unknown)"
     if is_filesystem_dirty "${device}"; then
         log_message "Dirty NTFS filesystem detected on ${device}."
         echo -e "${COLOR_YELLOW}Dirty NTFS filesystem detected on ${device}.${COLOR_RESET}"
-        send_notification "NTFS Fix" "Dirty filesystem detected on ${device}." "drive-harddisk-usb"
-        repair_filesystem "${device}" "${mount_point}"
+        send_notification "NTFS Fix" "Dirty filesystem detected on ${device}." "drive-harddisk-usb" || true
+        repair_filesystem "${device}" "${mount_point}" || true
     else
         log_message "NTFS filesystem on ${device} is clean."
         echo -e "${COLOR_GREEN}NTFS filesystem on ${device} is clean.${COLOR_RESET}"
-        send_notification "NTFS Check Complete" "Filesystem on ${device} is clean." "drive-removable-media"
+        send_notification "NTFS Check Complete" "Filesystem on ${device} is clean." "drive-removable-media" || true
     fi
     rm -f "${device_lock}"
     trap - EXIT
