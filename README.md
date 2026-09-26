@@ -4,7 +4,7 @@ A bash script that automatically detects and fixes dirty NTFS filesystems on USB
 
 ## Features
 
-- 🔍 **Automatic Detection** - Identifies NTFS filesystems on USB devices
+- 🔍 **Automatic Detection** - Identifies NTFS filesystems on connected devices
 - 🔧 **Automatic Repair** - Runs `ntfsfix` on dirty filesystems
 - 📢 **Desktop Notifications** - Alerts users (can be disabled)
 - 📝 **Logging** - Detailed logs (can be disabled)
