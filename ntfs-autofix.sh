@@ -6,7 +6,6 @@ readonly SCRIPT_NAME="ntfs-autofix"
 readonly INSTALL_PATH="/usr/local/bin/${SCRIPT_NAME}"
 readonly UDEV_RULE_PATH="/etc/udev/rules.d/99-ntfs-autofix.rules"
 readonly LOG_FILE="/var/log/ntfs-autofix.log"
-readonly LOCK_FILE="/var/run/ntfs-autofix.lock"
 readonly CONFIG_FILE="/etc/ntfs-autofix.conf"
 
 readonly COLOR_RED='\033[0;31m'
@@ -120,15 +119,22 @@ is_filesystem_dirty() {
     local output
     output=$(ntfsinfo -m "${device}" 2>&1)
 
-    log_message "ntfsinfo -m output for ${device}:"
+    local dirty=0
+    if echo "${output}" | grep -qE "Volume is scheduled for check|Access is denied"; then
+        dirty=1
+    fi
+
+    if [[ ${dirty} -eq 1 ]]; then
+        log_message "ntfsinfo -m output (DIRTY) for ${device}:"
+    else
+        log_message "ntfsinfo -m output (CLEAN) for ${device}:"
+    fi
+
     while IFS= read -r line; do
         log_message "  ${line}"
     done <<< "${output}"
 
-    if echo "${output}" | grep -qE "Volume is scheduled for check|Access is denied"; then
-        return 0
-    fi
-    return 1
+    return $((1 - dirty))
 }
 
 send_notification() {
@@ -330,7 +336,6 @@ uninstall_service() {
     rm -f "${UDEV_RULE_PATH}"
     rm -f "${LOG_FILE}"
     rm -f "${CONFIG_FILE}"
-    rm -f "${LOCK_FILE}"
     udevadm control --reload-rules
     udevadm trigger
     echo -e "${COLOR_GREEN}Uninstallation complete.${COLOR_RESET}"
@@ -378,20 +383,9 @@ show_status() {
     else
         echo "  (log file does not exist)"
     fi
-    if [[ -f "${LOCK_FILE}" ]]; then
-        echo -e "Lock file: ${COLOR_YELLOW}Active (PID: $(cat "${LOCK_FILE}" 2>/dev/null || echo 'unknown'))${COLOR_RESET}"
-    else
-        echo -e "Lock file: ${COLOR_GREEN}Inactive${COLOR_RESET}"
-    fi
 }
 
 main() {
-    if [[ -f "${LOCK_FILE}" ]] && kill -0 "$(cat "${LOCK_FILE}")" 2>/dev/null; then
-        log_message "Another instance is already running (PID: $(cat "${LOCK_FILE}")). Exiting. (DEVNAME=${DEVNAME:-<none>})"
-        exit 0
-    fi
-    echo $$ > "${LOCK_FILE}"
-    trap "rm -f '${LOCK_FILE}'; trap - EXIT" EXIT
     ensure_root
     if [[ -n "${DEVNAME:-}" ]]; then
         log_message "Invoked by udev for device: ${DEVNAME}"
@@ -403,7 +397,6 @@ main() {
         echo "  sudo ${SCRIPT_NAME} uninstall - Uninstall the service"
         echo "  sudo ${SCRIPT_NAME} status    - Show service status"
     fi
-    rm -f "${LOCK_FILE}"
     trap - EXIT
 }
 
