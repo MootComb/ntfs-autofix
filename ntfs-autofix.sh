@@ -120,6 +120,11 @@ is_filesystem_dirty() {
     local output
     output=$(ntfsinfo -m "${device}" 2>&1)
 
+    log_message "ntfsinfo -m output for ${device}:"
+    while IFS= read -r line; do
+        log_message "  ${line}"
+    done <<< "${output}"
+
     if echo "${output}" | grep -qE "Volume is scheduled for check|Access is denied"; then
         return 0
     fi
